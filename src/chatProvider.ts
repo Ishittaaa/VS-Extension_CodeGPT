@@ -105,6 +105,7 @@ export class ChatProvider {
             overflow-y: auto;
             padding: 20px;
             background-color: #f9f9f9;
+            color: rgba(0,0,0,0.1);
         }
         .message {
             margin-bottom: 15px;
@@ -112,12 +113,13 @@ export class ChatProvider {
             border-radius: 5px;
         }
         .user-message {
-            background-color: #e6f2ff;
+            background-color:rgb(166, 209, 255);
             text-align: right;
         }
         .bot-message {
             background-color: #f0f0f0;
             text-align: left;
+            color:rgba(0,0,0,0.1);
         }
         .input-container {
             display: flex;
