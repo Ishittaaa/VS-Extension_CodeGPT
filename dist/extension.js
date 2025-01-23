@@ -14184,6 +14184,7 @@ var ChatProvider = class {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Debug Bot</title>
     <base href="${htmlUri.toString()}">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14211,6 +14212,7 @@ var ChatProvider = class {
             margin-bottom: 15px;
             padding: 10px;
             border-radius: 5px;
+            line-height: 1.6;
         }
         .user-message {
             background-color: #e6f2ff;
@@ -14219,6 +14221,10 @@ var ChatProvider = class {
         .bot-message {
             background-color: #f0f0f0;
             text-align: left;
+        }
+        .error {
+            color: #d9534f;
+            background-color: #ffecec !important;
         }
         .input-container {
             display: flex;
@@ -14246,6 +14252,44 @@ var ChatProvider = class {
             color: #666;
             padding: 10px;
         }
+        
+        /* Markdown specific styles */
+        .message code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .message pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-width: 100%;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .message pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        .message h1, .message h2, .message h3 {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .message ul, .message ol {
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+        .message a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .message a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -14258,6 +14302,14 @@ var ChatProvider = class {
     </div>
 
     <script>
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            highlight: function(code, lang) {
+                return ;
+            }
+        });
+
         const vscode = acquireVsCodeApi();
         const messagesContainer = document.getElementById('messages');
         const userInput = document.getElementById('userInput');
@@ -14272,7 +14324,8 @@ var ChatProvider = class {
                 messageDiv.classList.add('error');
                 messageDiv.textContent = message;
             } else {
-                messageDiv.textContent = message;
+                // Use marked to render Markdown
+                messageDiv.innerHTML = marked.parse(message);
             }
             
             messagesContainer.appendChild(messageDiv);
