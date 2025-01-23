@@ -14206,6 +14206,7 @@ var ChatProvider = class {
             overflow-y: auto;
             padding: 20px;
             background-color: #f9f9f9;
+            color: rgba(0,0,0,0.1);
         }
         .message {
             margin-bottom: 15px;
@@ -14213,12 +14214,13 @@ var ChatProvider = class {
             border-radius: 5px;
         }
         .user-message {
-            background-color: #e6f2ff;
+            background-color:rgb(166, 209, 255);
             text-align: right;
         }
         .bot-message {
             background-color: #f0f0f0;
             text-align: left;
+            color: rgb(0,0,0)
         }
         .input-container {
             display: flex;
@@ -14240,6 +14242,9 @@ var ChatProvider = class {
             border: none;
             border-radius: 4px;
             cursor: pointer;
+        }
+        code{
+            color:rgb(228, 67, 253)
         }
         .loading {
             text-align: center;
@@ -14267,7 +14272,7 @@ var ChatProvider = class {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
             messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
-            
+
             if (isError) {
                 messageDiv.classList.add('error');
                 messageDiv.textContent = message;

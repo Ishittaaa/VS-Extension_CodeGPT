@@ -51,10 +51,10 @@ export class ChatProvider {
                     case "analyze": {
                         try {
                             const response = await this.processWithAI("analyze", message.text);
-                            this.panel?.webview.postMessage({ 
-                                type: "response", 
+                            this.panel?.webview.postMessage({
+                                type: "response",
                                 content: response,
-                                isError: false 
+                                isError: false
                             });
                         } catch (error) {
                             const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -119,7 +119,7 @@ export class ChatProvider {
         .bot-message {
             background-color: #f0f0f0;
             text-align: left;
-            color:rgba(0,0,0,0.1);
+            color: rgb(0,0,0)
         }
         .input-container {
             display: flex;
@@ -141,6 +141,9 @@ export class ChatProvider {
             border: none;
             border-radius: 4px;
             cursor: pointer;
+        }
+        code{
+            color:rgb(228, 67, 253)
         }
         .loading {
             text-align: center;
@@ -168,7 +171,7 @@ export class ChatProvider {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
             messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
-            
+
             if (isError) {
                 messageDiv.classList.add('error');
                 messageDiv.textContent = message;
@@ -217,14 +220,13 @@ export class ChatProvider {
         try {
             switch (command) {
                 case "analyze": {
-                    const response = await axios.post(`${this.API_URL}/code/analyze`, { 
-                        code: content, 
-                        context: null 
+                    const response = await axios.post(`${this.API_URL}/code/analyze`, {
+                        code: content,
+                        context: null
                     });
-                    
-                    return response.data.content || 
-                           response.data.analysis || 
-                           'No analysis received';
+                    return response.data.content ||
+                            response.data.analysis ||
+                            'No analysis received';
                 }
                 case "debug": {
                     const response = await axios.post(`${this.API_URL}/debug/debug`, { code: content });
@@ -250,7 +252,7 @@ export class ChatProvider {
     public async sendToChat(command: string, content: string): Promise<void> {
         try {
             const response = await this.processWithAI(command, content);
-            
+        
             if (this.panel) {
                 this.panel.webview.postMessage({
                     type: "response",
@@ -269,7 +271,7 @@ export class ChatProvider {
             }
         }
     }
-
+ 
     public dispose(): void {
         if (this.panel) {
             this.panel.dispose();
