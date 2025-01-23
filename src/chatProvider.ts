@@ -51,10 +51,10 @@ export class ChatProvider {
                     case "analyze": {
                         try {
                             const response = await this.processWithAI("analyze", message.text);
-                            this.panel?.webview.postMessage({
-                                type: "response",
+                            this.panel?.webview.postMessage({ 
+                                type: "response", 
                                 content: response,
-                                isError: false
+                                isError: false 
                             });
                         } catch (error) {
                             const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -77,14 +77,15 @@ export class ChatProvider {
 
     private getWebviewContent(htmlUri: vscode.Uri): string {
         return `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Debug Bot</title>
-    <base href="${htmlUri.toString()}">
-    <style>
-        body {
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>API Debug Bot</title>
+        <base href="${htmlUri.toString()}">
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <style>
+            body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
@@ -105,21 +106,27 @@ export class ChatProvider {
             overflow-y: auto;
             padding: 20px;
             background-color: #f9f9f9;
-            color: rgba(0,0,0,0.1);
+            color: #000; /* Changed from rgba to full black */
         }
         .message {
             margin-bottom: 15px;
             padding: 10px;
             border-radius: 5px;
+            line-height: 1.6;
+            color: #333; /* Added default text color */
         }
         .user-message {
-            background-color:rgb(166, 209, 255);
+            background-color: rgb(166, 209, 255);
             text-align: right;
         }
         .bot-message {
             background-color: #f0f0f0;
             text-align: left;
-            color: rgb(0,0,0)
+            color: #000; /* Changed from rgba to full black */
+        }
+        .error {
+            color: #d9534f;
+            background-color: #ffecec !important;
         }
         .input-container {
             display: flex;
@@ -142,13 +149,54 @@ export class ChatProvider {
             border-radius: 4px;
             cursor: pointer;
         }
-        code{
-            color:rgb(228, 67, 253)
-        }
         .loading {
             text-align: center;
             color: #666;
             padding: 10px;
+        }
+
+        /* Enhanced Markdown code highlighting */
+        .message code {
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            color: #d14;
+            border: 1px solid #e1e1e8;
+        }
+        .message pre {
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-width: 100%;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid #e1e1e8;
+            color: #333;
+        }
+        .message pre code {
+            background-color: transparent;
+            padding: 0;
+            border: none;
+            color: #333;
+        }
+        .message h1, .message h2, .message h3 {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .message ul, .message ol {
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+        .message a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .message a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -162,6 +210,14 @@ export class ChatProvider {
     </div>
 
     <script>
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            highlight: function(code, lang) {
+                return ;
+            }
+        });
+
         const vscode = acquireVsCodeApi();
         const messagesContainer = document.getElementById('messages');
         const userInput = document.getElementById('userInput');
@@ -171,12 +227,13 @@ export class ChatProvider {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
             messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
-
+            
             if (isError) {
                 messageDiv.classList.add('error');
                 messageDiv.textContent = message;
             } else {
-                messageDiv.textContent = message;
+                // Use marked to render Markdown
+                messageDiv.innerHTML = marked.parse(message);
             }
             
             messagesContainer.appendChild(messageDiv);
@@ -220,13 +277,14 @@ export class ChatProvider {
         try {
             switch (command) {
                 case "analyze": {
-                    const response = await axios.post(`${this.API_URL}/code/analyze`, {
-                        code: content,
-                        context: null
+                    const response = await axios.post(`${this.API_URL}/code/analyze`, { 
+                        code: content, 
+                        context: null 
                     });
-                    return response.data.content ||
-                            response.data.analysis ||
-                            'No analysis received';
+                    
+                    return response.data.content || 
+                           response.data.analysis || 
+                           'No analysis received';
                 }
                 case "debug": {
                     const response = await axios.post(`${this.API_URL}/debug/debug`, { code: content });
@@ -252,7 +310,7 @@ export class ChatProvider {
     public async sendToChat(command: string, content: string): Promise<void> {
         try {
             const response = await this.processWithAI(command, content);
-        
+            
             if (this.panel) {
                 this.panel.webview.postMessage({
                     type: "response",
@@ -271,7 +329,7 @@ export class ChatProvider {
             }
         }
     }
- 
+
     public dispose(): void {
         if (this.panel) {
             this.panel.dispose();
