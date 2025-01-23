@@ -8880,11 +8880,11 @@ var require_mime_types = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path2) {
-      if (!path2 || typeof path2 !== "string") {
+    function lookup(path3) {
+      if (!path3 || typeof path3 !== "string") {
         return false;
       }
-      var extension2 = extname("x." + path2).toLowerCase().substr(1);
+      var extension2 = extname("x." + path3).toLowerCase().substr(1);
       if (!extension2) {
         return false;
       }
@@ -9141,7 +9141,7 @@ var require_form_data = __commonJS({
   "node_modules/form-data/lib/form_data.js"(exports2, module2) {
     var CombinedStream = require_combined_stream();
     var util3 = require("util");
-    var path2 = require("path");
+    var path3 = require("path");
     var http2 = require("http");
     var https2 = require("https");
     var parseUrl = require("url").parse;
@@ -9267,11 +9267,11 @@ var require_form_data = __commonJS({
     FormData3.prototype._getContentDisposition = function(value, options) {
       var filename, contentDisposition;
       if (typeof options.filepath === "string") {
-        filename = path2.normalize(options.filepath).replace(/\\/g, "/");
+        filename = path3.normalize(options.filepath).replace(/\\/g, "/");
       } else if (options.filename || value.name || value.path) {
-        filename = path2.basename(options.filename || value.name || value.path);
+        filename = path3.basename(options.filename || value.name || value.path);
       } else if (value.readable && value.hasOwnProperty("httpVersion")) {
-        filename = path2.basename(value.client._httpMessage.path || "");
+        filename = path3.basename(value.client._httpMessage.path || "");
       }
       if (filename) {
         contentDisposition = 'filename="' + filename + '"';
@@ -11303,9 +11303,9 @@ function isVisitable(thing) {
 function removeBrackets(key) {
   return utils_default.endsWith(key, "[]") ? key.slice(0, -2) : key;
 }
-function renderKey(path2, key, dots) {
-  if (!path2) return key;
-  return path2.concat(key).map(function each(token, i) {
+function renderKey(path3, key, dots) {
+  if (!path3) return key;
+  return path3.concat(key).map(function each(token, i) {
     token = removeBrackets(token);
     return !dots && i ? "[" + token + "]" : token;
   }).join(dots ? "." : "");
@@ -11350,9 +11350,9 @@ function toFormData(obj, formData, options) {
     }
     return value;
   }
-  function defaultVisitor(value, key, path2) {
+  function defaultVisitor(value, key, path3) {
     let arr = value;
-    if (value && !path2 && typeof value === "object") {
+    if (value && !path3 && typeof value === "object") {
       if (utils_default.endsWith(key, "{}")) {
         key = metaTokens ? key : key.slice(0, -2);
         value = JSON.stringify(value);
@@ -11371,7 +11371,7 @@ function toFormData(obj, formData, options) {
     if (isVisitable(value)) {
       return true;
     }
-    formData.append(renderKey(path2, key, dots), convertValue(value));
+    formData.append(renderKey(path3, key, dots), convertValue(value));
     return false;
   }
   const stack = [];
@@ -11380,10 +11380,10 @@ function toFormData(obj, formData, options) {
     convertValue,
     isVisitable
   });
-  function build(value, path2) {
+  function build(value, path3) {
     if (utils_default.isUndefined(value)) return;
     if (stack.indexOf(value) !== -1) {
-      throw Error("Circular reference detected in " + path2.join("."));
+      throw Error("Circular reference detected in " + path3.join("."));
     }
     stack.push(value);
     utils_default.forEach(value, function each(el, key) {
@@ -11391,11 +11391,11 @@ function toFormData(obj, formData, options) {
         formData,
         el,
         utils_default.isString(key) ? key.trim() : key,
-        path2,
+        path3,
         exposedHelpers
       );
       if (result === true) {
-        build(el, path2 ? path2.concat(key) : [key]);
+        build(el, path3 ? path3.concat(key) : [key]);
       }
     });
     stack.pop();
@@ -11585,7 +11585,7 @@ var platform_default = {
 // node_modules/axios/lib/helpers/toURLEncodedForm.js
 function toURLEncodedForm(data, options) {
   return toFormData_default(data, new platform_default.classes.URLSearchParams(), Object.assign({
-    visitor: function(value, key, path2, helpers) {
+    visitor: function(value, key, path3, helpers) {
       if (platform_default.isNode && utils_default.isBuffer(value)) {
         this.append(key, value.toString("base64"));
         return false;
@@ -11614,11 +11614,11 @@ function arrayToObject(arr) {
   return obj;
 }
 function formDataToJSON(formData) {
-  function buildPath(path2, value, target, index) {
-    let name = path2[index++];
+  function buildPath(path3, value, target, index) {
+    let name = path3[index++];
     if (name === "__proto__") return true;
     const isNumericKey = Number.isFinite(+name);
-    const isLast = index >= path2.length;
+    const isLast = index >= path3.length;
     name = !name && utils_default.isArray(target) ? target.length : name;
     if (isLast) {
       if (utils_default.hasOwnProp(target, name)) {
@@ -11631,7 +11631,7 @@ function formDataToJSON(formData) {
     if (!target[name] || !utils_default.isObject(target[name])) {
       target[name] = [];
     }
-    const result = buildPath(path2, value, target[name], index);
+    const result = buildPath(path3, value, target[name], index);
     if (result && utils_default.isArray(target[name])) {
       target[name] = arrayToObject(target[name]);
     }
@@ -12757,9 +12757,9 @@ var http_default = isHttpAdapterSupported && function httpAdapter(config) {
       auth = urlUsername + ":" + urlPassword;
     }
     auth && headers.delete("authorization");
-    let path2;
+    let path3;
     try {
-      path2 = buildURL(
+      path3 = buildURL(
         parsed.pathname + parsed.search,
         config.params,
         config.paramsSerializer
@@ -12777,7 +12777,7 @@ var http_default = isHttpAdapterSupported && function httpAdapter(config) {
       false
     );
     const options = {
-      path: path2,
+      path: path3,
       method,
       headers: headers.toJSON(),
       agents: { http: config.httpAgent, https: config.httpsAgent },
@@ -13007,10 +13007,10 @@ var isURLSameOrigin_default = platform_default.hasStandardBrowserEnv ? /* @__PUR
 var cookies_default = platform_default.hasStandardBrowserEnv ? (
   // Standard browser envs support document.cookie
   {
-    write(name, value, expires, path2, domain, secure) {
+    write(name, value, expires, path3, domain, secure) {
       const cookie = [name + "=" + encodeURIComponent(value)];
       utils_default.isNumber(expires) && cookie.push("expires=" + new Date(expires).toGMTString());
-      utils_default.isString(path2) && cookie.push("path=" + path2);
+      utils_default.isString(path3) && cookie.push("path=" + path3);
       utils_default.isString(domain) && cookie.push("domain=" + domain);
       secure === true && cookie.push("secure");
       document.cookie = cookie.join("; ");
@@ -14118,45 +14118,208 @@ var {
 } = axios_default;
 
 // src/chatProvider.ts
+var path = __toESM(require("path"));
 var ChatProvider = class {
-  // Replace with your FastAPI URL
   constructor(context, terminalManager, documentManager) {
-    this.context = context;
     this.terminalManager = terminalManager;
     this.documentManager = documentManager;
+    this.context = context;
     this.initializeWebview();
   }
   panel;
   API_URL = "http://localhost:8000/api/v1";
+  context;
   initializeWebview() {
     this.panel = vscode.window.createWebviewPanel(
       "api-debug-bot",
       "API Debug Bot",
       vscode.ViewColumn.Two,
       {
-        enableScripts: true
+        enableScripts: true,
+        localResourceRoots: [
+          vscode.Uri.file(path.join(this.context.extensionPath, "webview"))
+        ]
       }
     );
-    this.panel.webview.html = this.getWebviewContent();
+    const htmlPath = vscode.Uri.file(
+      path.join(this.context.extensionPath, "webview", "chat.html")
+    );
+    const htmlUri = this.panel.webview.asWebviewUri(htmlPath);
+    const htmlContent = this.getWebviewContent(htmlUri);
+    this.panel.webview.html = htmlContent;
     this.panel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
-          case "analyze":
-            const response = await this.processWithAI("analyze", message.text);
-            this.panel.webview.postMessage({ type: "response", content: response });
+          case "analyze": {
+            try {
+              const response = await this.processWithAI("analyze", message.text);
+              this.panel?.webview.postMessage({
+                type: "response",
+                content: response,
+                isError: false
+              });
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+              this.panel?.webview.postMessage({
+                type: "response",
+                content: `Error: ${errorMessage}`,
+                isError: true
+              });
+            }
             break;
+          }
+          default:
+            console.warn(`Unknown command: ${message.command}`);
         }
       },
       void 0,
       this.context.subscriptions
     );
   }
+  getWebviewContent(htmlUri) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Debug Bot</title>
+    <base href="${htmlUri.toString()}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        #chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e6f2ff;
+            text-align: right;
+        }
+        .bot-message {
+            background-color: #f0f0f0;
+            text-align: left;
+        }
+        .input-container {
+            display: flex;
+            padding: 20px;
+            background-color: white;
+            border-top: 1px solid #eee;
+        }
+        #userInput {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        #sendButton {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="messages"></div>
+        <div class="input-container">
+            <input type="text" id="userInput" placeholder="Ask about your code...">
+            <button id="sendButton">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        const messagesContainer = document.getElementById('messages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+
+        function addMessage(message, isUser = false, isError = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
+            
+            if (isError) {
+                messageDiv.classList.add('error');
+                messageDiv.textContent = message;
+            } else {
+                messageDiv.textContent = message;
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function sendMessage() {
+            const text = userInput.value.trim();
+            if (text) {
+                addMessage(text, true);
+                
+                vscode.postMessage({
+                    command: 'analyze',
+                    text: text
+                });
+                
+                userInput.value = '';
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.type === 'response') {
+                addMessage(message.content, false, message.isError);
+            }
+        });
+    </script>
+</body>
+</html>`;
+  }
   async processWithAI(command, content) {
     try {
       switch (command) {
         case "analyze": {
-          const response = await axios_default.post(`${this.API_URL}/code/analyze`, { code: content });
-          return response.data.analysis || "No analysis received";
+          const response = await axios_default.post(`${this.API_URL}/code/analyze`, {
+            code: content,
+            context: null
+          });
+          return response.data.content || response.data.analysis || "No analysis received";
         }
         case "debug": {
           const response = await axios_default.post(`${this.API_URL}/debug/debug`, { code: content });
@@ -14177,111 +14340,6 @@ var ChatProvider = class {
       vscode.window.showErrorMessage("An unexpected error occurred");
       return "An error occurred while processing your request";
     }
-  }
-  getWebviewContent() {
-    return `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        margin: 0;
-                        padding: 20px;
-                    }
-                    #chat-container {
-                        display: flex;
-                        flex-direction: column;
-                        height: 100vh;
-                    }
-                    #messages {
-                        flex-grow: 1;
-                        overflow-y: auto;
-                        margin-bottom: 20px;
-                        padding: 10px;
-                        border: 1px solid #ccc;
-                    }
-                    #userInput {
-                        padding: 8px;
-                        margin-right: 10px;
-                        flex-grow: 1;
-                    }
-                    .input-container {
-                        display: flex;
-                        gap: 10px;
-                    }
-                    .loading {
-                        display: none;
-                        margin: 10px 0;
-                        color: #666;
-                    }
-                    .error {
-                        color: #ff0000;
-                    }
-                </style>
-            </head>
-            <body>
-                <div id="chat-container">
-                    <div id="messages"></div>
-                    <div id="loading" class="loading">Processing request...</div>
-                    <div class="input-container">
-                        <input type="text" id="userInput" placeholder="Ask about your API...">
-                        <button onclick="sendMessage()" id="sendButton">Send</button>
-                    </div>
-                </div>
-                <script>
-                    const vscode = acquireVsCodeApi();
-                    const messagesContainer = document.getElementById('messages');
-                    const userInput = document.getElementById('userInput');
-                    const loading = document.getElementById('loading');
-                    const sendButton = document.getElementById('sendButton');
-
-                    function setLoading(isLoading) {
-                        loading.style.display = isLoading ? 'block' : 'none';
-                        sendButton.disabled = isLoading;
-                        userInput.disabled = isLoading;
-                    }
-
-                    function sendMessage() {
-                        const text = userInput.value;
-                        if (text) {
-                            setLoading(true);
-                            addMessage('User: ' + text);
-                            vscode.postMessage({
-                                command: 'analyze',
-                                text: text
-                            });
-                            userInput.value = '';
-                        }
-                    }
-
-                    function addMessage(message, isError = false) {
-                        const messageDiv = document.createElement('div');
-                        messageDiv.textContent = message;
-                        if (isError) {
-                            messageDiv.classList.add('error');
-                        }
-                        messagesContainer.appendChild(messageDiv);
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    }
-
-                    window.addEventListener('message', event => {
-                        const message = event.data;
-                        setLoading(false);
-                        if (message.type === 'response') {
-                            addMessage('Bot: ' + message.content, message.isError);
-                        }
-                    });
-
-                    userInput.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter') {
-                            sendMessage();
-                        }
-                    });
-                </script>
-            </body>
-            </html>
-        `;
   }
   async sendToChat(command, content) {
     try {
@@ -14314,7 +14372,7 @@ var ChatProvider = class {
 // src/terminalManager.ts
 var vscode2 = __toESM(require("vscode"));
 var fs = __toESM(require("fs"));
-var path = __toESM(require("path"));
+var path2 = __toESM(require("path"));
 var os2 = __toESM(require("os"));
 var TerminalManager = class {
   terminalData = /* @__PURE__ */ new Map();
@@ -14356,11 +14414,11 @@ var TerminalManager = class {
     }
   }
   async setupOutputCapture(terminal) {
-    const tmpDir = path.join(os2.tmpdir(), "vscode-terminal-logs");
+    const tmpDir = path2.join(os2.tmpdir(), "vscode-terminal-logs");
     if (!fs.existsSync(tmpDir)) {
       fs.mkdirSync(tmpDir, { recursive: true });
     }
-    const logFile = path.join(tmpDir, `${terminal.name}-${Date.now()}.log`);
+    const logFile = path2.join(tmpDir, `${terminal.name}-${Date.now()}.log`);
     const redirectCommand = this.getRedirectCommand(logFile);
     terminal.sendText(redirectCommand);
     this.watchLogFile(logFile, terminal.name);
