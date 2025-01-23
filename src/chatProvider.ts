@@ -51,10 +51,10 @@ export class ChatProvider {
                     case "analyze": {
                         try {
                             const response = await this.processWithAI("analyze", message.text);
-                            this.panel?.webview.postMessage({ 
-                                type: "response", 
+                            this.panel?.webview.postMessage({
+                                type: "response",
                                 content: response,
-                                isError: false 
+                                isError: false
                             });
                         } catch (error) {
                             const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -83,7 +83,6 @@ export class ChatProvider {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Debug Bot</title>
     <base href="${htmlUri.toString()}">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -112,7 +111,6 @@ export class ChatProvider {
             margin-bottom: 15px;
             padding: 10px;
             border-radius: 5px;
-            line-height: 1.6;
         }
         .user-message {
             background-color:rgb(166, 209, 255);
@@ -121,11 +119,7 @@ export class ChatProvider {
         .bot-message {
             background-color: #f0f0f0;
             text-align: left;
-            color:rgba(0,0,0,0.1);
-        }
-        .error {
-            color: #d9534f;
-            background-color: #ffecec !important;
+            color: rgb(0,0,0)
         }
         .input-container {
             display: flex;
@@ -148,48 +142,13 @@ export class ChatProvider {
             border-radius: 4px;
             cursor: pointer;
         }
+        code{
+            color:rgb(228, 67, 253)
+        }
         .loading {
             text-align: center;
             color: #666;
             padding: 10px;
-        }
-        
-        /* Markdown specific styles */
-        .message code {
-            background-color: #f4f4f4;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: monospace;
-            font-size: 0.9em;
-        }
-        .message pre {
-            background-color: #f4f4f4;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
-            max-width: 100%;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        .message pre code {
-            background-color: transparent;
-            padding: 0;
-        }
-        .message h1, .message h2, .message h3 {
-            margin-top: 10px;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        .message ul, .message ol {
-            padding-left: 20px;
-            margin-bottom: 10px;
-        }
-        .message a {
-            color: #007bff;
-            text-decoration: none;
-        }
-        .message a:hover {
-            text-decoration: underline;
         }
     </style>
 </head>
@@ -203,14 +162,6 @@ export class ChatProvider {
     </div>
 
     <script>
-        marked.setOptions({
-            breaks: true,
-            gfm: true,
-            highlight: function(code, lang) {
-                return ;
-            }
-        });
-
         const vscode = acquireVsCodeApi();
         const messagesContainer = document.getElementById('messages');
         const userInput = document.getElementById('userInput');
@@ -220,13 +171,12 @@ export class ChatProvider {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
             messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
-            
+
             if (isError) {
                 messageDiv.classList.add('error');
                 messageDiv.textContent = message;
             } else {
-                // Use marked to render Markdown
-                messageDiv.innerHTML = marked.parse(message);
+                messageDiv.textContent = message;
             }
             
             messagesContainer.appendChild(messageDiv);
@@ -270,14 +220,13 @@ export class ChatProvider {
         try {
             switch (command) {
                 case "analyze": {
-                    const response = await axios.post(`${this.API_URL}/code/analyze`, { 
-                        code: content, 
-                        context: null 
+                    const response = await axios.post(`${this.API_URL}/code/analyze`, {
+                        code: content,
+                        context: null
                     });
-                    
-                    return response.data.content || 
-                           response.data.analysis || 
-                           'No analysis received';
+                    return response.data.content ||
+                            response.data.analysis ||
+                            'No analysis received';
                 }
                 case "debug": {
                     const response = await axios.post(`${this.API_URL}/debug/debug`, { code: content });
@@ -303,7 +252,7 @@ export class ChatProvider {
     public async sendToChat(command: string, content: string): Promise<void> {
         try {
             const response = await this.processWithAI(command, content);
-            
+        
             if (this.panel) {
                 this.panel.webview.postMessage({
                     type: "response",
@@ -322,7 +271,7 @@ export class ChatProvider {
             }
         }
     }
-
+ 
     public dispose(): void {
         if (this.panel) {
             this.panel.dispose();
