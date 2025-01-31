@@ -14120,7 +14120,6 @@ var {
 // src/chatProvider.ts
 var path = __toESM(require("path"));
 var ChatProvider = class {
-  // Track the last code/error content
   constructor(context, terminalManager, documentManager) {
     this.terminalManager = terminalManager;
     this.documentManager = documentManager;
@@ -14131,8 +14130,9 @@ var ChatProvider = class {
   API_URL = "http://localhost:8000/api/v1";
   context;
   lastCommand = "";
-  // Track the last command type
   lastContent = "";
+  lastResponse = null;
+  isProcessing = false;
   initializeWebview() {
     this.panel = vscode.window.createWebviewPanel(
       "api-debug-bot",
@@ -14145,321 +14145,262 @@ var ChatProvider = class {
         ]
       }
     );
-    const htmlPath = vscode.Uri.file(
-      path.join(this.context.extensionPath, "webview", "chat.html")
+    const htmlUri = this.panel.webview.asWebviewUri(
+      vscode.Uri.file(path.join(this.context.extensionPath, "webview", "chat.html"))
     );
-    const htmlUri = this.panel.webview.asWebviewUri(htmlPath);
-    const htmlContent = this.getWebviewContent(htmlUri);
-    this.panel.webview.html = htmlContent;
-    this.panel.webview.onDidReceiveMessage(
-      async (message) => {
-        try {
-          let response;
-          const text = message.text;
-          const command = message.command;
-          const isUserPrompt = message.isUserPrompt === true;
-          console.log("Received message:", { command, text, isUserPrompt });
-          if (isUserPrompt && this.lastCommand) {
-            console.log("Processing user prompt:", message.text);
-            response = await this.processWithAI(this.lastCommand, message.text, true);
-          } else {
-            console.log("Processing command:", message.command);
-            this.lastCommand = message.command;
-            response = await this.processWithAI(message.command, message.text, false);
-          }
-          this.panel?.webview.postMessage({
-            type: "response",
-            content: response,
-            isError: false
-          });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-          this.panel?.webview.postMessage({
-            type: "response",
-            content: `Error: ${errorMessage}`,
-            isError: true
-          });
-        }
-      },
-      void 0,
-      this.context.subscriptions
-    );
+    this.panel.webview.html = this.getWebviewContent(htmlUri);
+    this.panel.webview.onDidReceiveMessage(async (message) => {
+      if (this.isProcessing) return;
+      try {
+        this.isProcessing = true;
+        const response = await this.processWithAI(message.command, message.text, message.isUserPrompt === true);
+        this.panel?.webview.postMessage({
+          type: "response",
+          content: response,
+          isError: false
+        });
+      } catch (error) {
+        this.panel?.webview.postMessage({
+          type: "response",
+          content: `Error: ${error instanceof Error ? error.message : "An unknown error occurred"}`,
+          isError: true
+        });
+      } finally {
+        this.isProcessing = false;
+      }
+    });
   }
   getWebviewContent(htmlUri) {
     return `<!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>API Debug Bot</title>
-        <base href="${htmlUri.toString()}">
-        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-        <style>
-            body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f4;
-        }
-        #chat-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        #messages {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background-color: #f9f9f9;
-            color: #000; /* Changed from rgba to full black */
-        }
-        .message {
-            margin-bottom: 15px;
-            padding: 10px;
-            border-radius: 5px;
-            line-height: 1.6;
-            color: #333; /* Added default text color */
-        }
-        .user-message {
-            background-color: rgb(166, 209, 255);
-            text-align: right;
-        }
-        .bot-message {
-            background-color: #f0f0f0;
-            text-align: left;
-            color: #000; /* Changed from rgba to full black */
-        }
-        .error {
-            color: #d9534f;
-            background-color: #ffecec !important;
-        }
-        .input-container {
-            display: flex;
-            padding: 20px;
-            background-color: white;
-            border-top: 1px solid #eee;
-        }
-        #userInput {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-right: 10px;
-        }
-        #sendButton {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .loading {
-            text-align: center;
-            color: #666;
-            padding: 10px;
-        }
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Debug Bot</title>
+    <base href="${htmlUri.toString()}">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f4f4f4;
+    }
+    #chat-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+    }
+    #messages {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 20px;
+        background-color: #f9f9f9;
+        color: #000; /* Changed from rgba to full black */
+    }
+    .message {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 5px;
+        line-height: 1.6;
+        color: #333; /* Added default text color */
+    }
+    .user-message {
+        background-color: rgb(166, 209, 255);
+        text-align: right;
+    }
+    .bot-message {
+        background-color: #f0f0f0;
+        text-align: left;
+        color: #000; /* Changed from rgba to full black */
+    }
+    .error {
+        color: #d9534f;
+        background-color: #ffecec !important;
+    }
+    .input-container {
+        display: flex;
+        padding: 20px;
+        background-color: white;
+        border-top: 1px solid #eee;
+    }
+    #userInput {
+        flex-grow: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-right: 10px;
+    }
+    #sendButton {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .loading {
+        text-align: center;
+        color: #666;
+        padding: 10px;
+    }
 
-        /* Enhanced Markdown code highlighting */
-        .message code {
-            background-color: #f0f0f0;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.9em;
-            color: #d14;
-            border: 1px solid #e1e1e8;
-        }
-        .message pre {
-            background-color: #f8f8f8;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
-            max-width: 100%;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            border: 1px solid #e1e1e8;
-            color: #333;
-        }
-        .message pre code {
-            background-color: transparent;
-            padding: 0;
-            border: none;
-            color: #333;
-        }
-        .message h1, .message h2, .message h3 {
-            margin-top: 10px;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        .message ul, .message ol {
-            padding-left: 20px;
-            margin-bottom: 10px;
-        }
-        .message a {
-            color: #007bff;
-            text-decoration: none;
-        }
-        .message a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    /* Enhanced Markdown code highlighting */
+    .message code {
+        background-color: #f0f0f0;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.9em;
+        color: #d14;
+        border: 1px solid #e1e1e8;
+    }
+    .message pre {
+        background-color: #f8f8f8;
+        padding: 10px;
+        border-radius: 5px;
+        overflow-x: auto;
+        max-width: 100%;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        border: 1px solid #e1e1e8;
+        color: #333;
+    }
+    .message pre code {
+        background-color: transparent;
+        padding: 0;
+        border: none;
+        color: #333;
+    }
+    .message h1, .message h2, .message h3 {
+        margin-top: 10px;
+        margin-bottom: 10px;
+        color: #333;
+    }
+    .message ul, .message ol {
+        padding-left: 20px;
+        margin-bottom: 10px;
+    }
+    .message a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    .message a:hover {
+        text-decoration: underline;
+    }
+</style>
 </head>
 <body>
-    <div id="chat-container">
-        <div id="messages"></div>
-        <div class="input-container">
-            <select id="actionSelector">
-                    <option value="analyze">Explain Code</option>
-                    <option value="debug">Debug Code</option>
-                    <option value="refactor">Refactor Code</option>
-            </select>
-            <input type="text" id="userInput" placeholder="Ask about your code...">
-            <button id="sendButton">Send</button>
-        </div>
+<div id="chat-container">
+    <div id="messages"></div>
+    <div class="input-container">
+        <select id="actionSelector">
+                <option value="analyze">Explain Code</option>
+                <option value="debug">Debug Code</option>
+                <option value="refactor">Refactor Code</option>
+        </select>
+        <input type="text" id="userInput" placeholder="Ask about your code...">
+        <button id="sendButton">Send</button>
     </div>
+</div>
 
-    <script>
-        marked.setOptions({
-            breaks: true,
-            gfm: true,
-            highlight: function(code, lang) {
-                return ;
-            }
-        });
-
-        const vscode = acquireVsCodeApi();
-        const messagesContainer = document.getElementById('messages');
-        const userInput = document.getElementById('userInput');
-        const sendButton = document.getElementById('sendButton');
-        const actionSelector = document.getElementById('actionSelector');
-
-        function addMessage(message, isUser = false, isError = false) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-            messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
-            
-            if (isError) {
-                messageDiv.classList.add('error');
-                messageDiv.textContent = message;
-            } else {
-                // Use marked to render Markdown
-                messageDiv.innerHTML = marked.parse(message);
-            }
-            
-            messagesContainer.appendChild(messageDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+<script>
+    marked.setOptions({
+        breaks: true,
+        gfm: true,
+        highlight: function(code, lang) {
+            return ;
         }
+    });
 
-        function sendMessage() {
-            const text = userInput.value.trim();
-            if (text) {
-                addMessage(text, true);
-                const isUserPrompt = messagesContainer.children.length > 0;
-                vscode.postMessage({
-                    command: actionSelector.value,
-                    text: text,
-                    isUserPrompt:isUserPrompt
-                });
-                
-                console.log("dgshdgshdgsdusgdshdgs",userInput.value);
-                userInput.value='';
-            }
+    const vscode = acquireVsCodeApi();
+    const messagesContainer = document.getElementById('messages');
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+    const actionSelector = document.getElementById('actionSelector');
+
+    function addMessage(message, isUser = false, isError = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message');
+        messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
+        
+        if (isError) {
+            messageDiv.classList.add('error');
+            messageDiv.textContent = message;
+        } else {
+            // Use marked to render Markdown
+            messageDiv.innerHTML = marked.parse(message);
         }
+        
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
 
-        sendButton.addEventListener('click', sendMessage);
+    function sendMessage() {
+        const text = userInput.value.trim();
+        if (text) {
+            addMessage(text, true);
+            const isUserPrompt = messagesContainer.children.length > 0;
+            vscode.postMessage({
+                command: actionSelector.value,
+                text: text,
+                isUserPrompt:isUserPrompt
+            });
+            
+            console.log("dgshdgshdgsdusgdshdgs",userInput.value);
+            userInput.value='';
+        }
+    }
 
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
+    sendButton.addEventListener('click', sendMessage);
 
-        window.addEventListener('message', event => {
-            const message = event.data;
-            console.log("Received message from extension:", message);
-            if (message.type === 'response') {
-                addMessage(message.content, false, message.isError);
-            }
-            else if(message.type=='error'){
-                addMessage(message.content, false, true);
-            }
-        });
-    </script>
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    window.addEventListener('message', event => {
+        const message = event.data;
+        console.log("Received message from extension:", message);
+        if (message.type === 'response') {
+            addMessage(message.content, false, message.isError);
+        }
+        else if(message.type=='error'){
+            addMessage(message.content, false, true);
+        }
+    });
+</script>
 </body>
 </html>`;
   }
   async processWithAI(command, content, isUserPrompt = false) {
-    try {
-      const activeEditor = vscode.window.activeTextEditor;
-      const activeFileContent = activeEditor ? activeEditor.document.getText() : null;
-      const activeFilePath = activeEditor ? activeEditor.document.fileName : null;
-      const contextData = {
-        activeFileContent,
-        activeFilePath,
-        workspace: vscode.workspace.name
-      };
-      console.log("content from other function 1111111111", content);
-      let payload;
-      payload = {
-        context: activeFileContent,
-        user_prompt: content
-      };
-      if (isUserPrompt) {
-        payload = {
-          ...payload,
-          previous_content: this.lastContent,
-          // Include the previous code/content
-          previous_command: this.lastCommand,
-          // Include the previous command type
-          is_follow_up: true
-        };
-      } else {
-        this.lastContent = content;
-        this.lastCommand = command;
-      }
-      switch (command) {
-        case "analyze":
-          payload["code"] = isUserPrompt ? this.lastContent : content;
-          break;
-        case "debug":
-          payload["logs"] = isUserPrompt ? this.lastContent : content;
-          payload["code"] = isUserPrompt ? this.lastContent : content;
-          payload["type"] = "terminal_logs";
-          payload["format"] = "text";
-          break;
-        case "refactor":
-          payload["code"] = isUserPrompt ? this.lastContent : content;
-          break;
-      }
-      if (!isUserPrompt) {
-        this.lastContent = content;
-      }
-      const response = await axios_default.post(`${this.API_URL}/${command}`, payload);
-      let formattedResponse = "";
-      switch (command) {
-        case "analyze":
-          formattedResponse = this.formatAnalyzeResponse(response.data, content);
-          break;
-        case "debug":
-          formattedResponse = this.formatDebugResponse(response.data, content);
-          break;
-        case "refactor":
-          formattedResponse = response.data.refactor || "No refactoring suggestions received";
-          break;
-      }
-      return formattedResponse;
-    } catch (error) {
-      console.error("API Error:", error);
-      throw error;
+    if (!isUserPrompt && this.lastResponse && this.lastCommand === command && this.lastContent === content) {
+      return this.formatResponseByCommand(command, this.lastResponse, content);
     }
+    const activeEditor = vscode.window.activeTextEditor;
+    const payload = {
+      context: activeEditor?.document.getText() || null,
+      user_prompt: content,
+      previous_content: isUserPrompt ? this.lastContent : void 0,
+      previous_command: isUserPrompt ? this.lastCommand : void 0,
+      is_follow_up: isUserPrompt,
+      code: isUserPrompt ? this.lastContent : content,
+      logs: command === "debug" ? content : void 0,
+      type: command === "debug" ? "terminal_logs" : void 0,
+      format: command === "debug" ? "text" : void 0
+    };
+    const response = await axios_default.post(`${this.API_URL}/${command}`, payload);
+    this.lastResponse = response.data;
+    this.lastCommand = command;
+    this.lastContent = content;
+    return this.formatResponseByCommand(command, response.data, content);
   }
-  // Helper methods to format responses
   formatAnalyzeResponse(data, content) {
     let formattedResponse = "### Code Analysis\n\n";
     if (!data.isUserPrompt) {
@@ -14503,52 +14444,34 @@ var ChatProvider = class {
     return formattedResponse;
   }
   async sendToChat(command, content) {
+    if (this.isProcessing) return;
     try {
+      this.isProcessing = true;
       const response = await this.processWithAI(command, content);
-      if (this.panel) {
-        this.panel.webview.postMessage({
-          type: "response",
-          content: response,
-          isError: false
-        });
-      }
-    } catch (error) {
-      if (this.panel) {
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        this.panel.webview.postMessage({
-          type: "response",
-          content: `Error: ${errorMessage}`,
-          isError: true
-        });
-      }
-    }
-  }
-  async getSolution(errorText) {
-    try {
-      const activeEditor = vscode.window.activeTextEditor;
-      const activeFileContent = activeEditor ? activeEditor.document.getText() : null;
-      const response = await axios_default.post(`${this.API_URL}/debug`, {
-        logs: errorText,
-        type: "error_logs",
-        format: "text",
-        context: "",
-        code: activeFileContent
+      this.panel?.webview.postMessage({
+        type: "response",
+        content: response,
+        isError: false
       });
-      console.log("111111111111111111111111111", response);
-      return {
-        suggestions: response.data.suggestions || [],
-        code_snippets: response.data.code_snippets || [],
-        analysis: response.data.analysis || "No detailed analysis available"
-      };
-    } catch (error) {
-      console.error("Error getting solution:", error);
-      throw error;
+    } finally {
+      this.isProcessing = false;
     }
   }
-  dispose() {
-    if (this.panel) {
-      this.panel.dispose();
+  formatResponseByCommand(command, data, content) {
+    switch (command) {
+      case "analyze":
+        return this.formatAnalyzeResponse(data, content);
+      case "debug":
+        return this.formatDebugResponse(data, content);
+      case "refactor":
+        return data.refactor || "No refactoring suggestions received";
+      default:
+        return "Unknown command";
     }
+  }
+  // Keep the existing formatAnalyzeResponse and formatDebugResponse methods
+  dispose() {
+    this.panel?.dispose();
   }
 };
 
@@ -14673,12 +14596,22 @@ var TerminalManager = class {
   //         vscode.window.showErrorMessage("Failed to get solution");
   //     }
   // }
+  // commented it to try withoit getsolution:
+  // private async processError(errorText: string) {
+  //     console.log('Processing error:', errorText);
+  //     try {
+  //         const solution = await this.solver.getSolution(errorText);
+  //         console.log('Got solution:', solution);
+  //         // await this.displaySolution(errorText, solution);
+  //         await this.sendSolutionToChat(errorText, solution);
+  //     } catch (error) {
+  //         console.error("Error processing solution:", error);
+  //         vscode.window.showErrorMessage("Failed to get solution");
+  //     }
+  // }
   async processError(errorText) {
-    console.log("Processing error:", errorText);
     try {
-      const solution = await this.solver.getSolution(errorText);
-      console.log("Got solution:", solution);
-      await this.sendSolutionToChat(errorText, solution);
+      await this.solver.sendToChat("debug", errorText);
     } catch (error) {
       console.error("Error processing solution:", error);
       vscode2.window.showErrorMessage("Failed to get solution");
