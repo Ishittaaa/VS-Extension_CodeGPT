@@ -14120,6 +14120,7 @@ var {
 // src/chatProvider.ts
 var path = __toESM(require("path"));
 var ChatProvider = class {
+  // Track the last code/error content
   constructor(context, terminalManager, documentManager) {
     this.terminalManager = terminalManager;
     this.documentManager = documentManager;
@@ -14129,6 +14130,9 @@ var ChatProvider = class {
   panel;
   API_URL = "http://localhost:8000/api/v1";
   context;
+  lastCommand = "";
+  // Track the last command type
+  lastContent = "";
   initializeWebview() {
     this.panel = vscode.window.createWebviewPanel(
       "api-debug-bot",
@@ -14149,27 +14153,32 @@ var ChatProvider = class {
     this.panel.webview.html = htmlContent;
     this.panel.webview.onDidReceiveMessage(
       async (message) => {
-        switch (message.command) {
-          case "analyze": {
-            try {
-              const response = await this.processWithAI("analyze", message.text);
-              this.panel?.webview.postMessage({
-                type: "response",
-                content: response,
-                isError: false
-              });
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-              this.panel?.webview.postMessage({
-                type: "response",
-                content: `Error: ${errorMessage}`,
-                isError: true
-              });
-            }
-            break;
+        try {
+          let response;
+          const text = message.text;
+          const command = message.command;
+          const isUserPrompt = message.isUserPrompt === true;
+          console.log("Received message:", { command, text, isUserPrompt });
+          if (isUserPrompt && this.lastCommand) {
+            console.log("Processing user prompt:", message.text);
+            response = await this.processWithAI(this.lastCommand, message.text, true);
+          } else {
+            console.log("Processing command:", message.command);
+            this.lastCommand = message.command;
+            response = await this.processWithAI(message.command, message.text, false);
           }
-          default:
-            console.warn(`Unknown command: ${message.command}`);
+          this.panel?.webview.postMessage({
+            type: "response",
+            content: response,
+            isError: false
+          });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+          this.panel?.webview.postMessage({
+            type: "response",
+            content: `Error: ${errorMessage}`,
+            isError: true
+          });
         }
       },
       void 0,
@@ -14305,6 +14314,11 @@ var ChatProvider = class {
     <div id="chat-container">
         <div id="messages"></div>
         <div class="input-container">
+            <select id="actionSelector">
+                    <option value="analyze">Explain Code</option>
+                    <option value="debug">Debug Code</option>
+                    <option value="refactor">Refactor Code</option>
+            </select>
             <input type="text" id="userInput" placeholder="Ask about your code...">
             <button id="sendButton">Send</button>
         </div>
@@ -14323,6 +14337,7 @@ var ChatProvider = class {
         const messagesContainer = document.getElementById('messages');
         const userInput = document.getElementById('userInput');
         const sendButton = document.getElementById('sendButton');
+        const actionSelector = document.getElementById('actionSelector');
 
         function addMessage(message, isUser = false, isError = false) {
             const messageDiv = document.createElement('div');
@@ -14345,13 +14360,15 @@ var ChatProvider = class {
             const text = userInput.value.trim();
             if (text) {
                 addMessage(text, true);
-                
+                const isUserPrompt = messagesContainer.children.length > 0;
                 vscode.postMessage({
-                    command: 'analyze',
-                    text: text
+                    command: actionSelector.value,
+                    text: text,
+                    isUserPrompt:isUserPrompt
                 });
                 
-                userInput.value = '';
+                console.log("dgshdgshdgsdusgdshdgs",userInput.value);
+                userInput.value='';
             }
         }
 
@@ -14365,43 +14382,125 @@ var ChatProvider = class {
 
         window.addEventListener('message', event => {
             const message = event.data;
+            console.log("Received message from extension:", message);
             if (message.type === 'response') {
                 addMessage(message.content, false, message.isError);
+            }
+            else if(message.type=='error'){
+                addMessage(message.content, false, true);
             }
         });
     </script>
 </body>
 </html>`;
   }
-  async processWithAI(command, content) {
+  async processWithAI(command, content, isUserPrompt = false) {
     try {
+      const activeEditor = vscode.window.activeTextEditor;
+      const activeFileContent = activeEditor ? activeEditor.document.getText() : null;
+      const activeFilePath = activeEditor ? activeEditor.document.fileName : null;
+      const contextData = {
+        activeFileContent,
+        activeFilePath,
+        workspace: vscode.workspace.name
+      };
+      console.log("content from other function 1111111111", content);
+      let payload;
+      payload = {
+        context: activeFileContent,
+        user_prompt: content
+      };
+      if (isUserPrompt) {
+        payload = {
+          ...payload,
+          previous_content: this.lastContent,
+          // Include the previous code/content
+          previous_command: this.lastCommand,
+          // Include the previous command type
+          is_follow_up: true
+        };
+      } else {
+        this.lastContent = content;
+        this.lastCommand = command;
+      }
       switch (command) {
-        case "analyze": {
-          const response = await axios_default.post(`${this.API_URL}/code/analyze`, {
-            code: content,
-            context: null
-          });
-          return response.data.content || response.data.analysis || "No analysis received";
-        }
-        case "debug": {
-          const response = await axios_default.post(`${this.API_URL}/debug/debug`, { code: content });
-          return response.data.debug || "No debug information received";
-        }
-        case "refactor": {
-          const response = await axios_default.post(`${this.API_URL}/refactor/refactor`, { code: content });
-          return response.data.refactor || "No refactoring suggestions received";
-        }
-        default:
-          return `Unknown command: ${command}`;
+        case "analyze":
+          payload["code"] = isUserPrompt ? this.lastContent : content;
+          break;
+        case "debug":
+          payload["logs"] = isUserPrompt ? this.lastContent : content;
+          payload["code"] = isUserPrompt ? this.lastContent : content;
+          payload["type"] = "terminal_logs";
+          payload["format"] = "text";
+          break;
+        case "refactor":
+          payload["code"] = isUserPrompt ? this.lastContent : content;
+          break;
       }
+      if (!isUserPrompt) {
+        this.lastContent = content;
+      }
+      const response = await axios_default.post(`${this.API_URL}/${command}`, payload);
+      let formattedResponse = "";
+      switch (command) {
+        case "analyze":
+          formattedResponse = this.formatAnalyzeResponse(response.data, content);
+          break;
+        case "debug":
+          formattedResponse = this.formatDebugResponse(response.data, content);
+          break;
+        case "refactor":
+          formattedResponse = response.data.refactor || "No refactoring suggestions received";
+          break;
+      }
+      return formattedResponse;
     } catch (error) {
-      if (axios_default.isAxiosError(error)) {
-        vscode.window.showErrorMessage(`API Error: ${error.message}`);
-        return `Error communicating with API: ${error.message}`;
-      }
-      vscode.window.showErrorMessage("An unexpected error occurred");
-      return "An error occurred while processing your request";
+      console.error("API Error:", error);
+      throw error;
     }
+  }
+  // Helper methods to format responses
+  formatAnalyzeResponse(data, content) {
+    let formattedResponse = "### Code Analysis\n\n";
+    if (!data.isUserPrompt) {
+      formattedResponse += "#### Code:\n```\n" + content + "\n```\n\n";
+    }
+    if (data.analysis || data.content) {
+      formattedResponse += "#### Analysis:\n" + (data.analysis || data.content) + "\n\n";
+    }
+    if (data.suggestions) {
+      formattedResponse += "#### Suggestions:\n";
+      data.suggestions.forEach((suggestion) => {
+        formattedResponse += `- ${suggestion}
+`;
+      });
+      formattedResponse += "\n";
+    }
+    return formattedResponse;
+  }
+  formatDebugResponse(data, content) {
+    let formattedResponse = "### Debug Analysis\n\n";
+    if (!data.isUserPrompt) {
+      formattedResponse += "#### Error Logs:\n```\n" + content + "\n```\n\n";
+    }
+    if (data.analysis) {
+      formattedResponse += "#### Analysis:\n" + data.analysis + "\n\n";
+    }
+    if (data.suggestions) {
+      formattedResponse += "#### Suggestions:\n";
+      data.suggestions.forEach((suggestion) => {
+        formattedResponse += `- ${suggestion}
+`;
+      });
+      formattedResponse += "\n";
+    }
+    if (data.code_snippets) {
+      formattedResponse += "#### Code Solutions:\n";
+      data.code_snippets.forEach((snippet) => {
+        formattedResponse += "```typescript\n" + snippet.code + "\n```\n\n";
+      });
+    }
+    return formattedResponse;
   }
   async sendToChat(command, content) {
     try {
@@ -14424,6 +14523,28 @@ var ChatProvider = class {
       }
     }
   }
+  async getSolution(errorText) {
+    try {
+      const activeEditor = vscode.window.activeTextEditor;
+      const activeFileContent = activeEditor ? activeEditor.document.getText() : null;
+      const response = await axios_default.post(`${this.API_URL}/debug`, {
+        logs: errorText,
+        type: "error_logs",
+        format: "text",
+        context: "",
+        code: activeFileContent
+      });
+      console.log("111111111111111111111111111", response);
+      return {
+        suggestions: response.data.suggestions || [],
+        code_snippets: response.data.code_snippets || [],
+        analysis: response.data.analysis || "No detailed analysis available"
+      };
+    } catch (error) {
+      console.error("Error getting solution:", error);
+      throw error;
+    }
+  }
   dispose() {
     if (this.panel) {
       this.panel.dispose();
@@ -14437,155 +14558,231 @@ var fs = __toESM(require("fs"));
 var path2 = __toESM(require("path"));
 var os2 = __toESM(require("os"));
 var TerminalManager = class {
-  terminalData = /* @__PURE__ */ new Map();
-  terminals = /* @__PURE__ */ new Map();
-  outputChannel;
-  terminalProcessIds = /* @__PURE__ */ new Set();
-  constructor() {
-    this.outputChannel = vscode2.window.createOutputChannel("Terminal Logs");
-    this.initializeTerminalListeners();
+  constructor(solver) {
+    this.solver = solver;
+    this.errorFile = path2.join(os2.tmpdir(), "vscode_errors.json");
+    this.initializeErrorFile();
+    console.log(`Monitoring errors in: ${this.errorFile}`);
   }
-  initializeTerminalListeners() {
+  errorFile;
+  lastError = "";
+  disposables = [];
+  terminalListeners = /* @__PURE__ */ new Map();
+  errorPatterns = [
+    "Traceback",
+    "Error:",
+    "Exception:",
+    "Failed:",
+    "SyntaxError",
+    "TypeError",
+    "ValueError",
+    "ImportError",
+    "AttributeError",
+    "NameError",
+    "ZeroDivisionError",
+    "IndexError",
+    "KeyError",
+    "RuntimeError",
+    "SystemError"
+  ];
+  initializeErrorFile() {
+    if (!fs.existsSync(this.errorFile)) {
+      fs.writeFileSync(this.errorFile, JSON.stringify({ errors: [] }, null, 2));
+    }
+  }
+  async monitorTerminal() {
+    console.log("Starting error monitoring...");
     vscode2.window.terminals.forEach((terminal) => {
-      this.setupTerminal(terminal);
+      this.attachTerminalListener(terminal);
     });
-    vscode2.window.onDidOpenTerminal((terminal) => {
-      this.setupTerminal(terminal);
+    this.disposables.push(
+      vscode2.window.onDidOpenTerminal((terminal) => {
+        this.attachTerminalListener(terminal);
+      })
+    );
+    this.disposables.push(
+      vscode2.window.onDidCloseTerminal((terminal) => {
+        this.removeTerminalListener(terminal);
+      })
+    );
+    this.watchErrorFile();
+  }
+  attachTerminalListener(terminal) {
+    console.log("Attaching terminal listener");
+    const listener = vscode2.workspace.onDidChangeTextDocument((event) => {
+      if (event.document.uri.scheme === "output") {
+        const text = event.document.getText();
+        console.log("Checking output:", text);
+        if (this.isErrorMessage(text)) {
+          this.logError(text);
+        }
+      }
     });
-    vscode2.window.onDidCloseTerminal((terminal) => {
-      this.cleanupTerminal(terminal);
-    });
+    this.terminalListeners.set(terminal, listener);
   }
-  async setupTerminal(terminal) {
-    const processId = await terminal.processId;
-    if (processId && !this.terminalProcessIds.has(processId)) {
-      this.terminalProcessIds.add(processId);
-      this.terminals.set(terminal.name, terminal);
-      this.terminalData.set(terminal.name, []);
-      this.configureTerminal(terminal);
-      await this.setupOutputCapture(terminal);
+  removeTerminalListener(terminal) {
+    const listener = this.terminalListeners.get(terminal);
+    if (listener) {
+      listener.dispose();
+      this.terminalListeners.delete(terminal);
     }
   }
-  configureTerminal(terminal) {
-    if (process.platform === "win32") {
-      terminal.sendText("@echo on");
-      terminal.sendText("set PROMPT=$G");
-    } else {
-      terminal.sendText('export PS1="$ "');
-      terminal.sendText("stty echo");
+  isErrorMessage(text) {
+    const hasError = this.errorPatterns.some((pattern) => text.includes(pattern));
+    console.log("Checking text for errors:", text, "Result:", hasError);
+    return hasError;
+  }
+  async logError(errorText) {
+    console.log("Logging error:", errorText);
+    try {
+      const data = fs.existsSync(this.errorFile) ? JSON.parse(fs.readFileSync(this.errorFile, "utf8")) : { errors: [] };
+      data.errors.push(errorText);
+      fs.writeFileSync(this.errorFile, JSON.stringify(data, null, 2));
+      await this.processError(errorText);
+    } catch (error) {
+      console.error("Error writing to error file:", error);
     }
   }
-  async setupOutputCapture(terminal) {
-    const tmpDir = path2.join(os2.tmpdir(), "vscode-terminal-logs");
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
-    const logFile = path2.join(tmpDir, `${terminal.name}-${Date.now()}.log`);
-    const redirectCommand = this.getRedirectCommand(logFile);
-    terminal.sendText(redirectCommand);
-    this.watchLogFile(logFile, terminal.name);
-  }
-  getRedirectCommand(logFile) {
-    if (process.platform === "win32") {
-      return `echo Terminal Output > "${logFile}" && type con > "${logFile}"`;
-    } else {
-      return `exec 1> >(tee -a "${logFile}") 2>&1`;
-    }
-  }
-  watchLogFile(logFile, terminalName) {
-    let buffer = "";
-    if (!fs.existsSync(logFile)) {
-      fs.writeFileSync(logFile, "");
-    }
-    const watcher = fs.watch(logFile, (eventType) => {
-      if (eventType === "change") {
+  watchErrorFile() {
+    fs.watchFile(this.errorFile, async (curr, prev) => {
+      if (curr.mtime > prev.mtime) {
         try {
-          const content = fs.readFileSync(logFile, "utf8");
-          const newContent = content.slice(buffer.length);
-          if (newContent) {
-            buffer = content;
-            this.processOutput(terminalName, newContent);
+          const data = JSON.parse(fs.readFileSync(this.errorFile, "utf8"));
+          const errors = data.errors || [];
+          if (errors.length > 0) {
+            const latestError = errors[errors.length - 1];
+            if (latestError !== this.lastError) {
+              await this.processError(latestError);
+              this.lastError = latestError;
+            }
           }
         } catch (error) {
-          console.error(`Error reading log file: ${error}`);
-        }
-      }
-    });
-    vscode2.window.onDidCloseTerminal((closedTerminal) => {
-      if (closedTerminal.name === terminalName) {
-        watcher.close();
-        try {
-          fs.unlinkSync(logFile);
-        } catch (error) {
-          console.error(`Error deleting log file: ${error}`);
+          console.error("Error reading error file:", error);
         }
       }
     });
   }
-  processOutput(terminalName, output) {
-    const lines = output.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-    if (lines.length > 0) {
-      const terminalLogs = this.terminalData.get(terminalName) || [];
-      lines.forEach((line) => {
-        terminalLogs.push(line);
-        this.outputChannel.appendLine(`[${terminalName}] ${line}`);
+  // private async processError(errorText: string) {
+  //     console.log('Processing error:', errorText);
+  //     try {
+  //         const solution = await this.solver.getSolution(errorText);
+  //         console.log('Got solution:', solution);
+  //         await this.displaySolution(errorText, solution);
+  //     } catch (error) {
+  //         console.error("Error processing solution:", error);
+  //         vscode.window.showErrorMessage("Failed to get solution");
+  //     }
+  // }
+  async processError(errorText) {
+    console.log("Processing error:", errorText);
+    try {
+      const solution = await this.solver.getSolution(errorText);
+      console.log("Got solution:", solution);
+      await this.sendSolutionToChat(errorText, solution);
+    } catch (error) {
+      console.error("Error processing solution:", error);
+      vscode2.window.showErrorMessage("Failed to get solution");
+    }
+  }
+  // private async displaySolution(error: string, solution: any) {
+  //     const panel = vscode.window.createWebviewPanel(
+  //         'errorSolution',
+  //         'Error Solution',
+  //         vscode.ViewColumn.Two,
+  //         {}
+  //     );
+  //     // Format the suggestions into HTML
+  //     const suggestionsHtml = solution.suggestions
+  //         ? solution.suggestions
+  //             .map((suggestion: string, index: number) => 
+  //                 `<li>${suggestion}</li>`)
+  //             .join('\n')
+  //         : '';
+  //     // Format code snippets if they exist
+  //     const snippetsHtml = solution.code_snippets
+  //         ? solution.code_snippets
+  //             .map((snippet: any) => 
+  //                 `<pre><code>${snippet.code}</code></pre>`)
+  //             .join('\n')
+  //         : '';
+  //     panel.webview.html = `
+  //         <!DOCTYPE html>
+  //         <html>
+  //             <head>
+  //                 <style>
+  //                     body { 
+  //                         padding: 15px; 
+  //                         font-family: system-ui;
+  //                         line-height: 1.5;
+  //                     }
+  //                     .error { 
+  //                         color: red; 
+  //                         margin-bottom: 15px; 
+  //                         white-space: pre-wrap;
+  //                         padding: 10px;
+  //                         background-color: #f8f8f8;
+  //                         border-radius: 4px;
+  //                     }
+  //                     .solution { 
+  //                         white-space: pre-wrap;
+  //                     }
+  //                     .suggestions {
+  //                         margin-top: 15px;
+  //                     }
+  //                     .suggestions li {
+  //                         margin-bottom: 8px;
+  //                     }
+  //                     pre {
+  //                         background-color: #f5f5f5;
+  //                         padding: 10px;
+  //                         border-radius: 4px;
+  //                         overflow-x: auto;
+  //                     }
+  //                 </style>
+  //             </head>
+  //             <body>
+  //                 <h3>Error:</h3>
+  //                 <div class="error">${error}</div>
+  //                 ${snippetsHtml ? '<h3>Code Snippets:</h3>' + snippetsHtml : ''}
+  //                 <h3>Suggestions:</h3>
+  //                 <ul class="suggestions">
+  //                     ${suggestionsHtml}
+  //                 </ul>
+  //             </body>
+  //         </html>
+  //     `;
+  // }
+  // Update the processError method to handle the solution object
+  async sendSolutionToChat(error, solution) {
+    let chatMessage = `### Error Detected:
+\`\`\`
+${error}
+\`\`\`
+
+`;
+    if (solution.suggestions && Array.isArray(solution.suggestions)) {
+      chatMessage += "### Suggestions:\n";
+      solution.suggestions.forEach((suggestion) => {
+        chatMessage += `- ${suggestion}
+`;
       });
-      this.terminalData.set(terminalName, terminalLogs);
     }
-  }
-  cleanupTerminal(terminal) {
-    terminal.processId.then((pid) => {
-      if (pid) {
-        this.terminalProcessIds.delete(pid);
-      }
-    });
-    this.terminals.delete(terminal.name);
-    this.terminalData.delete(terminal.name);
-  }
-  createDebugTerminal(name) {
-    const existingTerminal = this.terminals.get(name);
-    if (existingTerminal) {
-      existingTerminal.show();
-      return existingTerminal;
+    if (solution.code_snippets && Array.isArray(solution.code_snippets)) {
+      chatMessage += "\n### Code Snippets:\n";
+      solution.code_snippets.forEach((snippet) => {
+        chatMessage += `\`\`\`
+${snippet.code}
+\`\`\`
+`;
+      });
     }
-    const terminalOptions = {
-      name,
-      shellPath: process.platform === "win32" ? "cmd.exe" : "bash",
-      shellArgs: process.platform === "win32" ? ["/K"] : ["-l"],
-      iconPath: new vscode2.ThemeIcon("debug"),
-      location: vscode2.TerminalLocation.Panel
-    };
-    const terminal = vscode2.window.createTerminal(terminalOptions);
-    this.setupTerminal(terminal);
-    terminal.show();
-    return terminal;
-  }
-  getCurrentLogs(terminalName) {
-    if (terminalName) {
-      return this.terminalData.get(terminalName) || [];
-    }
-    return Array.from(this.terminalData.values()).flat();
-  }
-  getErrorLogs(terminalName) {
-    const logs = this.getCurrentLogs(terminalName);
-    return logs.filter(
-      (log) => log.toLowerCase().includes("error") || log.toLowerCase().includes("exception")
-    );
-  }
-  clearLogs(terminalName) {
-    if (terminalName) {
-      this.terminalData.set(terminalName, []);
-    } else {
-      this.terminalData.clear();
-    }
-    this.outputChannel.clear();
+    await this.solver.sendToChat("debug", chatMessage);
   }
   dispose() {
-    this.outputChannel.dispose();
-    this.terminals.forEach((terminal) => terminal.dispose());
-    this.terminals.clear();
-    this.terminalData.clear();
-    this.terminalProcessIds.clear();
+    this.disposables.forEach((d) => d.dispose());
+    this.terminalListeners.forEach((listener) => listener.dispose());
+    this.terminalListeners.clear();
+    fs.unwatchFile(this.errorFile);
   }
 };
 
@@ -14610,21 +14807,12 @@ var DocumentManager = class {
 
 // src/extension.ts
 function activate(context) {
-  const terminalManager = new TerminalManager();
   const documentManager = new DocumentManager();
-  let chatProvider;
-  const ensureChatProvider = () => {
-    if (!chatProvider) {
-      chatProvider = new ChatProvider(context, terminalManager, documentManager);
-    }
-    return chatProvider;
-  };
-  const getSelectedOrFullText = (editor) => {
-    const selection = editor.selection;
-    return selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
-  };
-  let explainCommand = vscode4.commands.registerCommand("api-debug-bot.explain", async () => {
+  const chatProvider = new ChatProvider(context, null, documentManager);
+  const terminalManager = new TerminalManager(chatProvider);
+  const explainCommand = vscode4.commands.registerCommand("api-debug-bot.explain", async () => {
     const activeEditor = vscode4.window.activeTextEditor;
+    console.log("gsgtws111111111111111111111111111111111111111111111", activeEditor);
     if (!activeEditor) {
       vscode4.window.showInformationMessage("Please open a file to explain");
       return;
@@ -14634,18 +14822,12 @@ function activate(context) {
       vscode4.window.showInformationMessage("No code selected to explain");
       return;
     }
-    ensureChatProvider().sendToChat("analyze", text);
+    chatProvider.sendToChat("analyze", text);
   });
-  let debugCommand = vscode4.commands.registerCommand("api-debug-bot.debug", async () => {
-    const logs = terminalManager.getCurrentLogs();
-    if (!logs || logs.length === 0) {
-      vscode4.window.showInformationMessage("No terminal logs found");
-      return;
-    }
-    const logsText = logs.join("\n");
-    ensureChatProvider().sendToChat("debug", logsText);
+  const debugCommand = vscode4.commands.registerCommand("api-debug-bot.debug", async () => {
+    vscode4.window.showInformationMessage("Error monitoring is active. Any errors will be processed automatically.");
   });
-  let refactorCommand = vscode4.commands.registerCommand("api-debug-bot.refactor", async () => {
+  const refactorCommand = vscode4.commands.registerCommand("api-debug-bot.refactor", async () => {
     const activeEditor = vscode4.window.activeTextEditor;
     if (!activeEditor) {
       vscode4.window.showInformationMessage("Please open a file to refactor");
@@ -14656,11 +14838,25 @@ function activate(context) {
       vscode4.window.showInformationMessage("No code selected to refactor");
       return;
     }
-    ensureChatProvider().sendToChat("refactor", text);
+    chatProvider.sendToChat("refactor", text);
+  });
+  terminalManager.monitorTerminal().catch((error) => {
+    console.error("Error starting terminal monitoring:", error);
+    vscode4.window.showErrorMessage("Failed to start terminal monitoring");
   });
   context.subscriptions.push(explainCommand, debugCommand, refactorCommand);
+  context.subscriptions.push({
+    dispose: () => {
+      terminalManager.dispose();
+      chatProvider.dispose();
+    }
+  });
 }
 function deactivate() {
+}
+function getSelectedOrFullText(editor) {
+  const selection = editor.selection;
+  return selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

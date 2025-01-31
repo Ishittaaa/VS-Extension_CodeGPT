@@ -1,4 +1,4 @@
-{
+{ 
   "name": "api-debug-bot",
   "displayName": "api-debug-bot",
   "description": "debug the errors in api using ai",
@@ -25,8 +25,11 @@
         "command": "api-debug-bot.refactor",
         "title": "API Bot: Suggest Refactoring"
       }
+
     ]
+
   },
+  "enableproposedapi":true,
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
