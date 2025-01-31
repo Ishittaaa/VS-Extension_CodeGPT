@@ -129,33 +129,6 @@ export class TerminalManager {
             }
         });
     }
-
-    // private async processError(errorText: string) {
-    //     console.log('Processing error:', errorText);
-    //     try {
-    //         const solution = await this.solver.getSolution(errorText);
-    //         console.log('Got solution:', solution);
-    //         await this.displaySolution(errorText, solution);
-    //     } catch (error) {
-    //         console.error("Error processing solution:", error);
-    //         vscode.window.showErrorMessage("Failed to get solution");
-    //     }
-    // }
-
-    // commented it to try withoit getsolution:
-    // private async processError(errorText: string) {
-    //     console.log('Processing error:', errorText);
-    //     try {
-    //         const solution = await this.solver.getSolution(errorText);
-    //         console.log('Got solution:', solution);
-    //         // await this.displaySolution(errorText, solution);
-    //         await this.sendSolutionToChat(errorText, solution);
-    //     } catch (error) {
-    //         console.error("Error processing solution:", error);
-    //         vscode.window.showErrorMessage("Failed to get solution");
-    //     }
-    // }
-
     private async processError(errorText: string) {
         try {
             await this.solver.sendToChat('debug', errorText);
@@ -165,78 +138,6 @@ export class TerminalManager {
         }
     }
 
-    // private async displaySolution(error: string, solution: any) {
-    //     const panel = vscode.window.createWebviewPanel(
-    //         'errorSolution',
-    //         'Error Solution',
-    //         vscode.ViewColumn.Two,
-    //         {}
-    //     );
-    
-    //     // Format the suggestions into HTML
-    //     const suggestionsHtml = solution.suggestions
-    //         ? solution.suggestions
-    //             .map((suggestion: string, index: number) => 
-    //                 `<li>${suggestion}</li>`)
-    //             .join('\n')
-    //         : '';
-    
-    //     // Format code snippets if they exist
-    //     const snippetsHtml = solution.code_snippets
-    //         ? solution.code_snippets
-    //             .map((snippet: any) => 
-    //                 `<pre><code>${snippet.code}</code></pre>`)
-    //             .join('\n')
-    //         : '';
-    
-    //     panel.webview.html = `
-    //         <!DOCTYPE html>
-    //         <html>
-    //             <head>
-    //                 <style>
-    //                     body { 
-    //                         padding: 15px; 
-    //                         font-family: system-ui;
-    //                         line-height: 1.5;
-    //                     }
-    //                     .error { 
-    //                         color: red; 
-    //                         margin-bottom: 15px; 
-    //                         white-space: pre-wrap;
-    //                         padding: 10px;
-    //                         background-color: #f8f8f8;
-    //                         border-radius: 4px;
-    //                     }
-    //                     .solution { 
-    //                         white-space: pre-wrap;
-    //                     }
-    //                     .suggestions {
-    //                         margin-top: 15px;
-    //                     }
-    //                     .suggestions li {
-    //                         margin-bottom: 8px;
-    //                     }
-    //                     pre {
-    //                         background-color: #f5f5f5;
-    //                         padding: 10px;
-    //                         border-radius: 4px;
-    //                         overflow-x: auto;
-    //                     }
-    //                 </style>
-    //             </head>
-    //             <body>
-    //                 <h3>Error:</h3>
-    //                 <div class="error">${error}</div>
-    //                 ${snippetsHtml ? '<h3>Code Snippets:</h3>' + snippetsHtml : ''}
-    //                 <h3>Suggestions:</h3>
-    //                 <ul class="suggestions">
-    //                     ${suggestionsHtml}
-    //                 </ul>
-    //             </body>
-    //         </html>
-    //     `;
-    // }
-    
     // Update the processError method to handle the solution object
     private async sendSolutionToChat(error: string, solution: any) {
         // Format the message for chat
