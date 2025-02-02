@@ -14127,7 +14127,7 @@ var ChatProvider = class {
     this.initializeWebview();
   }
   panel;
-  API_URL = "http://localhost:8000/api/v1";
+  API_URL = "http://localhost:8000/codepilot/v1";
   context;
   lastCommand = "";
   lastContent = "";
@@ -14135,8 +14135,8 @@ var ChatProvider = class {
   isProcessing = false;
   initializeWebview() {
     this.panel = vscode.window.createWebviewPanel(
-      "api-debug-bot",
-      "API Debug Bot",
+      "codepilot",
+      "Code Pilot",
       vscode.ViewColumn.Two,
       {
         enableScripts: true,
@@ -14302,7 +14302,6 @@ var ChatProvider = class {
         <select id="actionSelector">
                 <option value="analyze">Explain Code</option>
                 <option value="debug">Debug Code</option>
-                <option value="refactor">Refactor Code</option>
         </select>
         <input type="text" id="userInput" placeholder="Ask about your code...">
         <button id="sendButton">Send</button>
@@ -14395,6 +14394,7 @@ var ChatProvider = class {
       type: command === "debug" ? "terminal_logs" : void 0,
       format: command === "debug" ? "text" : void 0
     };
+    console.log("Sending payload:", payload);
     const response = await axios_default.post(`${this.API_URL}/${command}`, payload);
     this.lastResponse = response.data;
     this.lastCommand = command;
@@ -14463,13 +14463,10 @@ var ChatProvider = class {
         return this.formatAnalyzeResponse(data, content);
       case "debug":
         return this.formatDebugResponse(data, content);
-      case "refactor":
-        return data.refactor || "No refactoring suggestions received";
       default:
         return "Unknown command";
     }
   }
-  // Keep the existing formatAnalyzeResponse and formatDebugResponse methods
   dispose() {
     this.panel?.dispose();
   }
@@ -14632,17 +14629,27 @@ var vscode3 = __toESM(require("vscode"));
 var DocumentManager = class {
   getActiveDocumentContent() {
     const activeEditor = vscode3.window.activeTextEditor;
-    if (activeEditor) {
-      return activeEditor.document.getText();
+    if (!activeEditor) {
+      vscode3.window.showInformationMessage("Please open a file to analyze");
+      return void 0;
     }
-    return void 0;
+    if (!activeEditor.document.getText().trim()) {
+      vscode3.window.showInformationMessage("The file is empty");
+      return void 0;
+    }
+    return activeEditor.document.getText();
   }
   getSelectedText() {
     const activeEditor = vscode3.window.activeTextEditor;
-    if (activeEditor) {
-      return activeEditor.document.getText(activeEditor.selection);
+    if (!activeEditor) {
+      vscode3.window.showInformationMessage("Please open a file first");
+      return void 0;
     }
-    return void 0;
+    const selectedText = activeEditor.document.getText(activeEditor.selection);
+    if (!selectedText.trim()) {
+      return activeEditor.document.getText();
+    }
+    return selectedText;
   }
 };
 
@@ -14651,41 +14658,21 @@ function activate(context) {
   const documentManager = new DocumentManager();
   const chatProvider = new ChatProvider(context, null, documentManager);
   const terminalManager = new TerminalManager(chatProvider);
-  const explainCommand = vscode4.commands.registerCommand("api-debug-bot.explain", async () => {
-    const activeEditor = vscode4.window.activeTextEditor;
-    console.log("gsgtws111111111111111111111111111111111111111111111", activeEditor);
-    if (!activeEditor) {
-      vscode4.window.showInformationMessage("Please open a file to explain");
+  const explainCommand = vscode4.commands.registerCommand("codepilot.explain", async () => {
+    const content = documentManager.getActiveDocumentContent();
+    if (!content) {
       return;
     }
-    const text = getSelectedOrFullText(activeEditor);
-    if (!text.trim()) {
-      vscode4.window.showInformationMessage("No code selected to explain");
-      return;
-    }
-    chatProvider.sendToChat("analyze", text);
+    await chatProvider.sendToChat("analyze", content);
   });
-  const debugCommand = vscode4.commands.registerCommand("api-debug-bot.debug", async () => {
+  const debugCommand = vscode4.commands.registerCommand("codepilot.debug", async () => {
     vscode4.window.showInformationMessage("Error monitoring is active. Any errors will be processed automatically.");
-  });
-  const refactorCommand = vscode4.commands.registerCommand("api-debug-bot.refactor", async () => {
-    const activeEditor = vscode4.window.activeTextEditor;
-    if (!activeEditor) {
-      vscode4.window.showInformationMessage("Please open a file to refactor");
-      return;
-    }
-    const text = getSelectedOrFullText(activeEditor);
-    if (!text.trim()) {
-      vscode4.window.showInformationMessage("No code selected to refactor");
-      return;
-    }
-    chatProvider.sendToChat("refactor", text);
   });
   terminalManager.monitorTerminal().catch((error) => {
     console.error("Error starting terminal monitoring:", error);
     vscode4.window.showErrorMessage("Failed to start terminal monitoring");
   });
-  context.subscriptions.push(explainCommand, debugCommand, refactorCommand);
+  context.subscriptions.push(explainCommand, debugCommand);
   context.subscriptions.push({
     dispose: () => {
       terminalManager.dispose();
@@ -14694,10 +14681,6 @@ function activate(context) {
   });
 }
 function deactivate() {
-}
-function getSelectedOrFullText(editor) {
-  const selection = editor.selection;
-  return selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

@@ -7,7 +7,7 @@ import type { DocumentManager } from "./documentManager";
 
 export class ChatProvider {
   private panel: vscode.WebviewPanel | undefined;
-  private readonly API_URL = "http://localhost:8000/api/v1";
+  private readonly API_URL = "http://localhost:8000/codepilot/v1";
   private context: vscode.ExtensionContext;
   private lastCommand: string = '';
   private lastContent: string = '';
@@ -25,8 +25,8 @@ export class ChatProvider {
 
   private initializeWebview(): void {
     this.panel = vscode.window.createWebviewPanel(
-      "api-debug-bot",
-      "API Debug Bot",
+      "codepilot",
+      "Code Pilot",
       vscode.ViewColumn.Two,
       {
         enableScripts: true,
@@ -199,7 +199,6 @@ export class ChatProvider {
         <select id="actionSelector">
                 <option value="analyze">Explain Code</option>
                 <option value="debug">Debug Code</option>
-                <option value="refactor">Refactor Code</option>
         </select>
         <input type="text" id="userInput" placeholder="Ask about your code...">
         <button id="sendButton">Send</button>
@@ -295,6 +294,7 @@ private async processWithAI(command: string, content: string, isUserPrompt: bool
       format: command === "debug" ? "text" : undefined
     };
 
+    console.log('Sending payload:', payload);
     const response = await axios.post(`${this.API_URL}/${command}`, payload);
     
     this.lastResponse = response.data;
@@ -377,14 +377,12 @@ private async processWithAI(command: string, content: string, isUserPrompt: bool
         return this.formatAnalyzeResponse(data, content);
       case "debug":
         return this.formatDebugResponse(data, content);
-      case "refactor":
-        return data.refactor || "No refactoring suggestions received";
       default:
         return "Unknown command";
     }
   }
 
-  // Keep the existing formatAnalyzeResponse and formatDebugResponse methods
+  
 
   public dispose(): void {
     this.panel?.dispose();

@@ -1,7 +1,7 @@
 { 
-  "name": "api-debug-bot",
-  "displayName": "api-debug-bot",
-  "description": "debug the errors in api using ai",
+  "name": "codepilot",
+  "displayName": "codepilot",
+  "description": "Code Pilot is an intelligent debugging assistant that transforms the debugging experience through natural language interaction. It acts as a chat-based debugger that reads your terminal output, analyzes your code, and provides explanations and solutions in real-time. With its VS Code extension integration, you can debug your applications without leaving your development environment.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.80.0"
@@ -14,16 +14,12 @@
   "contributes": {
     "commands": [
       {
-        "command": "api-debug-bot.explain",
-        "title": "API Bot: Explain Code"
+        "command": "codepilot.explain",
+        "title": "Code Pilot: Explain Code"
       },
       {
-        "command": "api-debug-bot.debug",
-        "title": "API Bot: Debug Issues"
-      },
-      {
-        "command": "api-debug-bot.refactor",
-        "title": "API Bot: Suggest Refactoring"
+        "command": "codepilot.debug",
+        "title": "Code Pilot: Debug Issues"
       }
 
     ]
@@ -58,7 +54,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "api-debug-bot": "file:",
+    "codepilot": "file:",
     "axios": "^1.7.9"
   }
 }
